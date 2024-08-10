@@ -53,7 +53,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 		void* pUserData) {
-	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	std::cerr << "[VVL] " << pCallbackData->pMessage << std::endl;
 
 	return VK_FALSE;
 }
@@ -114,7 +114,7 @@ private:
 		if (glfwInit()) {
 			std::cout << "GLFW Initialized.\n";
 		} else {
-			throw std::runtime_error("GLFW Failed to Initrialize!");
+			throw std::runtime_error("GLFW Failed to Initialize!");
 		}
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -154,7 +154,7 @@ private:
 			}
 		}
 
-		// Creating AppInfo Struct
+		// Creating AppInfo Struct for creating VkInstance
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Hello Triangle";
@@ -186,7 +186,7 @@ private:
 		for (int i = 0; i < glfwExtensionCount; i++) {
 			std::cout << "\t" << glfwExtensions[i] << "\t";
 
-			// Logs "EXISTS" next to extension if it exists
+			// Logs "(Available)" next to extension if it exists
 			for (const auto& extension : extensions) {
 				if (strcmp(extension.extensionName, glfwExtensions[i]) == 0) {
 					std::cout << "(Available)";
@@ -208,7 +208,7 @@ private:
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		auto glfwExtensionVector = getRequiredExtensions();
+		std::vector<const char*> glfwExtensionVector = getRequiredExtensions();
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(glfwExtensionVector.size());
 		createInfo.ppEnabledExtensionNames = glfwExtensionVector.data();
 
