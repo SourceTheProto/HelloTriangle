@@ -107,18 +107,21 @@ class HelloTriangleApplication {
 public:
 	// Public Methods
 	void run() {
-		initWindow();
-		initVulkan();
-		setupDebugMessenger();
-		createSurface();
-		pickPhysicalDevice();
-		createLogicalDevice();
-		createSwapChain();
-		createImageViews();
-		createRenderPass();
-		createGraphicsPipeline();
-		mainLoop();
-		cleanup();
+		InitWindow();
+		InitVulkan();
+		SetupDebugMessenger();
+		CreateSurface();
+		PickPhysicalDevice();
+		CreateLogicalDevice();
+		CreateSwapChain();
+		CreateImageViews();
+		CreateRenderPass();
+		CreateGraphicsPipeline();
+		CreateFrameBuffers();
+		CreateCommandPool();
+		CreateCommandBuffer();
+		MainLoop();
+		Cleanup();
 	}
 private:
 	// Private Structs
@@ -154,9 +157,12 @@ private:
 	VkPipelineLayout pipelineLayout;
 	std::vector<VkImageView> swapChainImageViews;
 	VkPipeline graphicsPipeline;
+	std::vector<VkFramebuffer> swapChainFramebuffers;
+	VkCommandPool commandPool;
+	VkCommandBuffer commandBuffer;
 
 	// Private Methods
-	void initWindow() {
+	void InitWindow() {
 		std::cout << "Initializing GLFW...";
 		if (glfwInit()) {
 			std::cout << "GLFW Initialized.\n";
@@ -213,7 +219,7 @@ private:
 		return details;
 	}
 
-	void initVulkan() {
+	void InitVulkan() {
 		// Creating Instance
 		
 		// Checking Validation layers validity
@@ -312,7 +318,7 @@ private:
 		createInfo.pUserData = nullptr;
 	}
 
-	void setupDebugMessenger() {
+	void SetupDebugMessenger() {
 		if (!enableValidationLayers) return;
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
@@ -323,7 +329,7 @@ private:
 		}
 	}
 
-	void createSurface() {
+	void CreateSurface() {
 		if (glfwCreateWindowSurface(instance, window, nullptr, &surface) == VK_SUCCESS) {
 			std::cout << "\nCreated Window Surface.\n";
 		} else {
@@ -331,7 +337,7 @@ private:
 		}
 	}
 
-	void pickPhysicalDevice() {
+	void PickPhysicalDevice() {
 		// Listing Physical Devices
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -458,7 +464,7 @@ private:
 		return indices;
 	}
 
-	void createLogicalDevice() {
+	void CreateLogicalDevice() {
 		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 		
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -503,7 +509,7 @@ private:
 		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 	}
 
-	void createSwapChain() {
+	void CreateSwapChain() {
 		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
 		VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -554,7 +560,7 @@ private:
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
 	}
 
-	void createImageViews() {
+	void CreateImageViews() {
 		swapChainImageViews.resize(swapChainImages.size());
 
 		for (size_t i = 0; i < swapChainImages.size(); i++) {
@@ -579,7 +585,7 @@ private:
 		}
 	}
 
-	void createRenderPass() {
+	void CreateRenderPass() {
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = swapChainImageFormat;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -611,7 +617,7 @@ private:
 		}
 	}
 
-	void createGraphicsPipeline() {
+	void CreateGraphicsPipeline() {
 		std::vector<char> vertShaderCode = readFile("../shaders/compiled/triangleVert.spv");
 		std::vector<char> fragShaderCode = readFile("../shaders/compiled/triangleFrag.spv");
 
@@ -766,7 +772,102 @@ private:
 		return shaderModule;
 	}
 
-	void mainLoop() {
+	void CreateFrameBuffers() {
+		swapChainFramebuffers.resize(swapChainImageViews.size());
+
+		for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+			VkImageView attachments[] = {
+				swapChainImageViews[i]
+			};
+
+			VkFramebufferCreateInfo framebufferInfo{};
+			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferInfo.renderPass = renderPass;
+			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.pAttachments = attachments;
+			framebufferInfo.width = swapChainExtent.width;
+			framebufferInfo.height = swapChainExtent.height;
+			framebufferInfo.layers = 1;
+
+			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create framebuffer!");
+			}
+		}
+
+	}
+
+	void CreateCommandPool() {
+		QueueFamilyIndices queueFamilyIndices =findQueueFamilies(physicalDevice);
+
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create command pool!");
+		}
+	}
+
+	void CreateCommandBuffer() {
+		VkCommandBufferAllocateInfo commandBufferInfo{};
+		commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		commandBufferInfo.commandPool = commandPool;
+		commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		commandBufferInfo.commandBufferCount = 1;
+
+		if (vkAllocateCommandBuffers(device, &commandBufferInfo, &commandBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate command buffers!");
+		}
+	}
+
+	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to begin recording command buffer!");
+		}
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent = swapChainExtent;
+		VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(swapChainExtent.width);
+		viewport.height = static_cast<float>(swapChainExtent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+		VkRect2D scissor{};
+		scissor.offset = {0, 0};
+		scissor.extent = swapChainExtent;
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+		vkCmdEndRenderPass(commandBuffer);
+
+		if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to record command buffer!");
+		}
+	}
+
+	void MainLoop() {
 		std::cout << "\nEntering mainLoop()\n";
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
@@ -774,39 +875,41 @@ private:
 
 	}
 
-	void cleanup() {
-		// Destroying pipeline & render pass
+	void Cleanup() {
+		std::cout << "Destroying command pool\n";
+		vkDestroyCommandPool(device, commandPool, nullptr);
+
+		std::cout << "Destroying Framebuffers\n";
+		for (auto framebuffer : swapChainFramebuffers) {
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+
+		std::cout << "Destroying graphics pipeline & render pass\n";
 		vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 
-		// Destroying swap chain image views
-		std::cout << "Destroying SC Image Views" << std::endl;
+		std::cout << "Destroying swap chain image views" << std::endl;
 		for (auto imageview : swapChainImageViews) {
 			vkDestroyImageView(device, imageview, nullptr);
 		}
 
-		std::cout << "Destroying SC" << std::endl;
-		// Destroying swap chain before logical device
+		std::cout << "Destroying swap chain\n";
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
 
-		std::cout << "Destroying Logical Device" << std::endl;
-		// Destroying vulkan logical device
+		std::cout << "Destroying logical device\n";
 		vkDestroyDevice(device, nullptr);
 
-		std::cout << "Destroying Validation Layers" << std::endl;
-		// Destroying Validation Layers
 		if (enableValidationLayers) {
+			std::cout << "Destroying Vulkan Validation Layers\n";
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		}
 
-		std::cout << "Destroying Vulkan Instance and Surface" << std::endl;
-		// Destroying Vulkan
+		std::cout << "Destroying Vulkan Instance and Surface\n";
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 		vkDestroyInstance(instance, nullptr);
 
 		std::cout << "Destroying GLFW" << std::endl;
-		// Destroying GLFW
 		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
