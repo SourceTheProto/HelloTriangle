@@ -1038,7 +1038,7 @@ private:
 		vkDestroySwapchainKHR(device,  swapChain, nullptr);
 	}
 
-	void ConsoleLog(std::basic_string<char> message) {
+	void ConsoleLog(const char* message) {
 		std::cout << "[LOG] " << message << "\n";
 		return;
 	}

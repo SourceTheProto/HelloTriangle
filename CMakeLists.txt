@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 
 project(HelloTriangle)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(glfw3 3.3 REQUIRED)
 find_package(Vulkan REQUIRED)
